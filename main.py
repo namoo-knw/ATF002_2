@@ -7,28 +7,22 @@ from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QIcon
 from Common.log import Log
-from Service.dsat_util import (dsat_login, progress_info, query_count_info, result_info, click_report, get_spam_percentage, get_spam_doc)
+from Service.dsat_util import DSATUtil
 from Service import agit_webhook
 from tabulate import tabulate
-
+import setup.knw_license
 
 
 # PyInstaller 실행 파일(.exe)을 위한 리소스 경로 변환 함수
-
 def resource_path(relative_path):
-
     try:
-        # PyInstaller는 임시 폴더를 생성하고 그 경로를 _MEIPASS에 저장합니다.
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 
-
-# 백그라운드 작업을 위한 Worker 클래스 정의
-
+# 백그라운드 작업 영역
 class ScrapingWorker(QThread):
     progress = pyqtSignal(str)
     finished = pyqtSignal(dict)
@@ -39,27 +33,32 @@ class ScrapingWorker(QThread):
         self.username = username
         self.password = password
         self.headless_mode = headless_mode
-        self.driver = None
 
     def run(self):
         log = Log(gui_logger=self.progress.emit)
         try:
             log.log("★ 스팸률 수집 작업을 시작합니다. ★")
-            self.driver = dsat_login(self.username, self.password, self.headless_mode, log)
-            if not self.driver:
+            dsat = DSATUtil(log=log, headless=self.headless_mode)
+
+            # 로그인
+            if not dsat.login(self.username, self.password):
                 raise ConnectionError("비밀번호 오류 또는 로그인 실패")
 
-            progress_text_value = progress_info(self.driver, log)
-            query_count_info(self.driver, log)
-            result_info(self.driver, log)
+            # 홈 정보 수집
+            progress_text_value = dsat.get_progress_info()
+            dsat.get_query_count_info()
+            dsat.get_result_info()
 
-            link_txt, link_href = click_report(self.driver, log)
+            # 리포트 클릭
+            link_txt, link_href = dsat.click_report()
             if link_txt is None or link_href is None:
                 raise ValueError("'대기중' 상태인 평가 리포트 클릭 실패")
 
-            spam_percentage = get_spam_percentage(self.driver, log)
-            spam_documents_df = get_spam_doc(self.driver, log)
+            # 스팸률 및 문서 수집
+            spam_percentage = dsat.get_spam_percentage()
+            spam_documents_df = dsat.get_spam_doc()
 
+            # 아지트 글 작성 영역
             agit_txt = ""
             spam_doc_count = 0
             if spam_documents_df is not None and not spam_documents_df.empty:
@@ -80,30 +79,34 @@ class ScrapingWorker(QThread):
                     f'{spam_text}\n'
                     '────────────────────────────────\n'
                     f'[리포트 페이지 : {link_href}]\n\n\n'
-                    '@namoo.kim'
-                    '@@index'
+                    '@namoo.kim\n'
+                    '@@index\n'
                 )
             else:
                 log.log("수집된 스팸 문서가 없습니다.")
 
             result_data = {
-                'link_txt': link_txt, 'spam_percentage': spam_percentage,
-                'progress_text_value': progress_text_value, 'spam_doc_count': spam_doc_count,
+                'link_txt': link_txt,
+                'spam_percentage': spam_percentage,
+                'progress_text_value': progress_text_value,
+                'spam_doc_count': spam_doc_count,
                 'agit_txt': agit_txt
             }
             self.finished.emit(result_data)
+
         except Exception as e:
             error_msg = f"작업 중 오류 발생: {str(e)}"
             log.log(error_msg, level='ERROR')
             log.log(traceback.format_exc(), level='ERROR')
             self.error.emit(str(e))
         finally:
-            if self.driver:
-                log.gui_logger = None
-                self.driver.quit()
-                log.log("★ 크롬 브라우저 종료 완료 ★")
+            dsat.close()
+            log.gui_logger = None
+            log.log("★ 크롬 브라우저 종료 완료 ★")
 
 
+
+# 아지트 공유 버튼 작동 영역
 class AgitShareWorker(QThread):
     finished = pyqtSignal(bool, str)
 
@@ -120,13 +123,11 @@ class AgitShareWorker(QThread):
 
 
 
-# 메인 윈도우 클래스 정의
-
+# 메인 윈도우
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
-        # resource_path 함수를 사용하여 UI 파일과 아이콘 파일의 절대 경로를 찾습니다.
         ui_file_path = resource_path(os.path.join("Resource", "main_window.ui"))
         icon_path = resource_path(os.path.join("Resource", "favicon_64x64.ico"))
         loadUi(ui_file_path, self)
@@ -142,11 +143,11 @@ class MainWindow(QWidget):
         self.button_start.clicked.connect(self.start_auto_refresh)
         self.button_stop.clicked.connect(self.stop_auto_refresh)
         self.button_share_agit.clicked.connect(self.share_to_agit)
-
         self.button_stop.setEnabled(False)
         self.button_share_agit.setEnabled(False)
         self.lineEdit_password.setEchoMode(QLineEdit.Password)
 
+    # 자동 새로고침 영역_로그인
     def start_auto_refresh(self):
         self.username = self.lineEdit_username.text()
         self.password = self.lineEdit_password.text()
@@ -156,16 +157,17 @@ class MainWindow(QWidget):
 
         interval_minutes = self.spinBox_interval.value()
         self.timer.start(interval_minutes * 60 * 1000)
-
         self.set_controls_enabled(False)
         self.label_status.setText(f"상태: {interval_minutes}분 간격으로 새로고침 시작.")
         self.trigger_scraping()
 
+    # 자동 새로고침 영역_정지
     def stop_auto_refresh(self):
         self.timer.stop()
         self.set_controls_enabled(True)
         self.label_status.setText("상태: 자동 새로고침 중지됨.")
 
+    # 자동 새로고침 영역_정보 표시
     def trigger_scraping(self):
         self.button_share_agit.setEnabled(False)
         self.label_status.setText("상태: 정보 수집 중...")
@@ -176,6 +178,7 @@ class MainWindow(QWidget):
         self.worker.progress.connect(self.update_status_label)
         self.worker.start()
 
+    # 자동 새로고침 영역_수집된 정보 ui 표시
     def update_ui_data(self, data):
         self.label_link_txt.setText(f"차수: {data.get('link_txt', 'N/A')}")
         self.label_spam_percentage.setText(f"스팸률: {data.get('spam_percentage', 'N/A')}")
@@ -193,15 +196,18 @@ class MainWindow(QWidget):
         else:
             self.label_status.setText(f"상태: 업데이트 완료 ({current_time})")
 
+    # 자동 새로고침 영역_오류 알림
     def handle_error(self, error_msg):
         QMessageBox.critical(self, "오류", f"크롤링 중 오류가 발생했습니다:\n{error_msg}")
         self.label_status.setText("상태: 오류 발생으로 중지됨.")
         if self.timer.isActive():
             self.stop_auto_refresh()
 
+    # ui 하단 진행 상태 표시
     def update_status_label(self, text):
         self.label_status.setText(f"상태: {text}")
 
+    # 아지트 공유 처리 영역
     def share_to_agit(self):
         if not self.agit_txt:
             QMessageBox.warning(self, "알림", "공유할 내용이 없습니다.")
@@ -212,6 +218,7 @@ class MainWindow(QWidget):
         self.agit_worker.finished.connect(self.on_agit_share_finished)
         self.agit_worker.start()
 
+    # 아지트 공유 완료/오류시 작동
     def on_agit_share_finished(self, success, message):
         if success:
             QMessageBox.information(self, "성공", message)
@@ -221,6 +228,7 @@ class MainWindow(QWidget):
             self.button_share_agit.setEnabled(True)
             self.button_share_agit.setText("아지트 공유하기")
 
+    # ui 세팅
     def set_controls_enabled(self, is_enabled):
         self.button_start.setEnabled(is_enabled)
         self.button_stop.setEnabled(not is_enabled)
@@ -229,6 +237,7 @@ class MainWindow(QWidget):
         self.lineEdit_password.setEnabled(is_enabled)
         self.checkBox_headless.setEnabled(is_enabled)
 
+    # 작업 종료
     def closeEvent(self, event):
         if self.worker and self.worker.isRunning():
             self.worker.quit()
@@ -237,9 +246,9 @@ class MainWindow(QWidget):
 
 
 
+# 실행
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-
