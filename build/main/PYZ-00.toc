@@ -2213,7 +2213,6 @@
   ('selenium.webdriver.wpewebkit.webdriver',
    'C:\\Users\\KnWorks\\PycharmProjects\\ATF002\\.venv\\lib\\site-packages\\selenium\\webdriver\\wpewebkit\\webdriver.py',
    'PYMODULE'),
-  ('setup', '-', 'PYMODULE'),
   ('shlex', 'C:\\Program Files\\Python39\\lib\\shlex.py', 'PYMODULE'),
   ('shutil', 'C:\\Program Files\\Python39\\lib\\shutil.py', 'PYMODULE'),
   ('signal', 'C:\\Program Files\\Python39\\lib\\signal.py', 'PYMODULE'),
