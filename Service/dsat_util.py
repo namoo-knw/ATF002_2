@@ -1,8 +1,3 @@
-# ==============================================================================
-# 통합된 크롤링 모듈 (crawler.py)
-# ==============================================================================
-# 필요한 모든 라이브러리를 한 곳에서 가져옵니다.
-# ------------------------------------------------------------------------------
 import time
 import traceback
 import pandas as pd
@@ -21,33 +16,23 @@ from selenium.common.exceptions import (
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-# ==============================================================================
-# pw_security.py 기능
-# ==============================================================================
-# UI에서 비밀번호 처리를 하므로, 간단한 input 함수만 남깁니다.
-# ------------------------------------------------------------------------------
+
+
+# 아이디 비번 입력
 def get_credentials():
-    """아이디와 비밀번호를 콘솔에서 입력받습니다."""
     username = input("아이디를 입력하세요: ")
-    # 비밀번호 마스킹 기능은 UI에서 처리하므로 일반 input으로 변경
     password = input("비밀번호를 입력하세요: ")
     return username, password
 
 
-# ==============================================================================
-# dsat_login.py 기능
-# ==============================================================================
-# 웹사이트 로그인 및 드라이버 관리를 담당합니다.
-# ------------------------------------------------------------------------------
+
+# 로그인 및 드라이버 관리
+
 BASE_URL = "https://dsat.dev.9rum.cc/#/user/login"
 
 
 def dsat_login(username, password, headless, log):
-    """
-    DSAT 웹사이트에 로그인하고, 성공 시 웹 드라이버 객체를 반환합니다.
-    - headless 옵션을 통해 브라우저 창을 숨길 수 있습니다.
-    - log 객체를 통해 모든 과정을 기록합니다.
-    """
+
     try:
         log.log("웹 드라이버 설정을 시작합니다.")
         options = Options()
@@ -85,21 +70,18 @@ def dsat_login(username, password, headless, log):
 
 
 def close_chrome(driver):
-    """웹 드라이버를 안전하게 종료합니다."""
     if driver:
         driver.quit()
 
 
-# ==============================================================================
-# web_crawl.py 기능
-# ==============================================================================
-# DSAT 홈 페이지의 정보를 크롤링합니다.
-# ------------------------------------------------------------------------------
+
+# DSAT 홈 정보 크롤링
+
 HOME_URL = "https://dsat.dev.9rum.cc/#/home"
 
 
 def progress_info(driver, log):
-    """평가 진행률 정보를 가져옵니다."""
+    #평가 진행률 정보
     try:
         log.log(f"홈 페이지로 이동: {HOME_URL}")
         driver.get(HOME_URL)
@@ -117,7 +99,7 @@ def progress_info(driver, log):
 
 
 def query_count_info(driver, log):
-    """평가 현황(대기, 진행, 완료) 정보를 가져옵니다."""
+    #평가 현황(대기, 진행, 완료) 정보
     try:
         statistic_sections = WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CLASS_NAME, "ant-statistic"))
@@ -125,7 +107,6 @@ def query_count_info(driver, log):
         log.log(f"평가 현황 섹션 {len(statistic_sections)}개를 찾았습니다.")
 
         # ... (기존 query_count_info 로직) ...
-        # (이 부분은 제공해주신 코드와 동일합니다)
         valuation_pending = None
         valuation_in_progress = None
         valuation_completed = None
@@ -154,7 +135,7 @@ def query_count_info(driver, log):
 
 
 def result_info(driver, log):
-    """햄/스팸 문서 개수 정보를 가져옵니다."""
+    #햄/스팸 문서 개수 정보
     try:
         statistic_sections = WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.CLASS_NAME, "ant-statistic"))
@@ -162,7 +143,6 @@ def result_info(driver, log):
         log.log(f"햄/스팸 섹션 {len(statistic_sections)}개를 찾았습니다.")
 
         # ... (기존 result_info 로직) ...
-        # (이 부분은 제공해주신 코드와 동일합니다)
         ham_count = None
         spam_count = None
 
@@ -186,16 +166,13 @@ def result_info(driver, log):
         return None, None
 
 
-# ==============================================================================
-# report_crawl.py 기능
-# ==============================================================================
-# 평가 리포트 페이지의 정보를 크롤링합니다.
-# ------------------------------------------------------------------------------
+# 평가 리포트 페이지 정보 크롤링
+
 REPORT_URL = "https://dsat.dev.9rum.cc/#/valuation/result/report"
 
 
 def click_report(driver, log):
-    """'대기중' 상태의 리포트를 찾아 클릭하고, 관련 정보를 반환합니다."""
+    #'대기중' 상태 리포트 클릭
     try:
         log.log(f"평가리포트 페이지로 이동: {REPORT_URL}")
         driver.get(REPORT_URL)
@@ -209,7 +186,6 @@ def click_report(driver, log):
         log.log(f"✅ 총 {len(all_cards)}개의 리포트 카드를 찾았습니다.")
 
         # ... (기존 click_report 로직) ...
-        # (이 부분은 제공해주신 코드와 동일합니다)
         target_card = None
         for card in all_cards:
             if '대기중' in card.text:
@@ -241,7 +217,7 @@ def click_report(driver, log):
 
 
 def get_spam_percentage(driver, log):
-    """상세 페이지에서 스팸률 정보를 가져옵니다."""
+    #상세 페이지 스팸률 정보
     try:
         spam_rate_element = WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.XPATH, "//td[text()='스팸']/following-sibling::td[2]"))
@@ -254,18 +230,14 @@ def get_spam_percentage(driver, log):
         return "(정보 없음)"
 
 
-# ==============================================================================
-# doc_crawl.py 기능
-# ==============================================================================
-# 스팸 문서 목록을 크롤링하여 DataFrame으로 반환합니다.
-# ------------------------------------------------------------------------------
+# 스팸 문서 목록을 크롤링하여 DataFrame으로 반환
+
 def get_spam_doc(driver, log):
-    """'스팸문서 예시' 테이블의 데이터를 DataFrame으로 반환합니다."""
+    #'스팸문서 예시' 테이블 데이터 DataFrame 반환
     try:
         log.log("스팸 문서 크롤링을 시작합니다.")
 
         # ... (기존 get_spam_doc 로직) ...
-        # (이 부분은 제공해주신 코드와 동일하며 매우 안정적인 코드입니다)
         spam_list_section_xpath = "//section[@id='spam-list']"
         spam_list_section = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.XPATH, spam_list_section_xpath)))

@@ -2,33 +2,19 @@ import sys
 import os
 import traceback
 from datetime import datetime
-
-# --- PyQt5 관련 import ---
 from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QLineEdit
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QIcon
-
-# --- 프로젝트 유틸리티 import ---
 from Common.log import Log
-from Service.dsat_util import (
-    dsat_login,
-    progress_info,
-    query_count_info,
-    result_info,
-    click_report,
-    get_spam_percentage,
-    get_spam_doc
-)
+from Service.dsat_util import (dsat_login, progress_info, query_count_info, result_info, click_report, get_spam_percentage, get_spam_doc)
 from Service import agit_webhook
-
-# --- 기타 라이브러리 import ---
 from tabulate import tabulate
 
 
-# ==============================================================================
+
 # PyInstaller 실행 파일(.exe)을 위한 리소스 경로 변환 함수
-# ==============================================================================
+
 def resource_path(relative_path):
     """
     실행 파일(.exe)로 만들었을 때 리소스 경로를 올바르게 찾기 위한 함수입니다.
@@ -43,9 +29,8 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-# ==============================================================================
+
 # 백그라운드 작업을 위한 Worker 클래스 정의
-# ==============================================================================
 
 class ScrapingWorker(QThread):
     progress = pyqtSignal(str)
@@ -137,13 +122,13 @@ class AgitShareWorker(QThread):
             self.finished.emit(False, f"아지트 공유에 실패했습니다:\n{str(e)}")
 
 
-# ==============================================================================
+
 # 메인 윈도우 클래스 정의
-# ==============================================================================
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        # --- [수정된 부분] ---
+
         # resource_path 함수를 사용하여 UI 파일과 아이콘 파일의 절대 경로를 찾습니다.
         ui_file_path = resource_path(os.path.join("Resource", "main_window.ui"))
         icon_path = resource_path(os.path.join("Resource", "favicon_64x64.ico"))
@@ -254,9 +239,7 @@ class MainWindow(QWidget):
         event.accept()
 
 
-# ==============================================================================
-# 프로그램 시작점
-# ==============================================================================
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
