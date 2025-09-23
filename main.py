@@ -16,10 +16,7 @@ from tabulate import tabulate
 # PyInstaller 실행 파일(.exe)을 위한 리소스 경로 변환 함수
 
 def resource_path(relative_path):
-    """
-    실행 파일(.exe)로 만들었을 때 리소스 경로를 올바르게 찾기 위한 함수입니다.
-    .py로 실행하든 .exe로 실행하든 항상 올바른 경로를 반환합니다.
-    """
+
     try:
         # PyInstaller는 임시 폴더를 생성하고 그 경로를 _MEIPASS에 저장합니다.
         base_path = sys._MEIPASS
